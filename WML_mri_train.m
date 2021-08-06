@@ -21,6 +21,11 @@ addpath(genpath(fullfile(localDir, 'supportFiles')));
 
 settingsImageSequence; % Load all the settings from the file
 rand('state', sum(100*clock)); % Initialize the random number generator
+symbolduration = 1;
+isi = [1.3 1.5 1.7]; % 1 seconds for TR = 1
+drawduration = 4;
+wei = [1.7 1.5 1.3];
+epochduration = 8;
 
 % User input.
 prefs.subID = str2num(deblank(input('\nPlease enter the subID number (e.g., 101): ', 's')));%'101';
@@ -46,13 +51,14 @@ end
 clear ch
 
 %%%%%%%%%%%%%%%%%%%%% Parameters: DO NOT CHANGE. %%%%%%%%%%%%%%%%%%%%%%%%
-prefs.backColor = [255 255 255];   % (0 0 0) is black, (255 255 255) is white
-prefs.foreColor = [0 0 0];
+prefs.backcolor = [255 255 255];   % (0 0 0) is black, (255 255 255) is white, (220 220 220) is gainsboro (i.e., light gray)
+prefs.forecolor = [0 0 0];
+prefs.penWidth = 6; % You can increase the thickness of the pen-tip by increasing this number, but there's a limit to the thickness... around 10 maybe.
 prefs.scale = 150;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Screen.
-% prefs.s1 = max(Screen('Screens')); % Choose the screen that is most likely not the controller screen.
+prefs.s1 = max(Screen('Screens')); % Choose the screen that is most likely not the controller screen.
 prefs.s0 = min(Screen('Screens')); % Find primary screen.
 
 %% Select window according to number of screens present. (Assumes that the desired device for display will have the highest screen number.)
@@ -61,12 +67,13 @@ prefs.s0 = min(Screen('Screens')); % Find primary screen.
 % screen available, them set the window to be a short portion of it b/c
 % testing. If two screens are available, then set the window to be the
 % % second screen b/c experiment.
-%     [prefs.w1, prefs.w1Size] = PsychImaging('OpenWindow', prefs.s0, prefs.backColor);
-prefs.w1Size = [0 0 1920 1200];
+%     [prefs.w1, prefs.w1Size] = PsychImaging('OpenWindow', prefs.s0, prefs.backcolor);
+prefs.w1Size = [0 0 640 480]; %[0 0 1920 1200];
 prefs.w1Width = prefs.w1Size(3); prefs.w1Height = prefs.w1Size(4);
 prefs.xcenter = prefs.w1Width/2; prefs.ycenter = prefs.w1Height/2;
 %     % Dimensions of stimulus presentation area.
 prefs.rectForStim = [prefs.w1Width/2-prefs.scale/2 prefs.w1Height/2-prefs.scale/2 prefs.w1Width/2+prefs.scale/2 prefs.w1Height/2+prefs.scale/2];
+% prefs.rectForStim = [prefs.w1Width/2-prefs.scale/2 prefs.w1Height/5-prefs.scale/2 prefs.w1Width/2+prefs.scale/2 prefs.w1Height/5+prefs.scale/2];
 
 % Hide cursor and orient to the Matlab command window for user input.
 commandwindow;
@@ -81,14 +88,21 @@ RestrictKeysForKbCheck(KbCheckList);
 
 % Screen setup
 clear screen
+
+%% Select window according to number of screens present. (Assumes that the desired display device will have the highest screen number.)
+
+% Choose dimension of window according to available screens. If only one
+% screen is available, them set the window to be a short portion of it b/c
+% testing. If two screens are available, then set the window to be the
+% second screen b/c experiment.
 whichScreen = prefs.s0; %0 is computer, 1 is tablet
-% window1=prefs.w1;
-[window1, ~] = Screen('Openwindow',whichScreen,backgroundColor,prefs.w1Size,[],2);
+[window1, ~] = Screen('Openwindow', whichScreen, prefs.backcolor, prefs.w1Size,[],2);
 slack = Screen('GetFlipInterval', window1)/2;
 prefs.w1 = window1;
 W=prefs.w1Width; % screen width
 H=prefs.w1Height; % screen height
-Screen(prefs.w1,'FillRect',prefs.backColor);
+
+Screen(prefs.w1,'FillRect',prefs.backcolor);
 Screen('Flip', prefs.w1);
 HideCursor([], prefs.w1);
 
@@ -107,42 +121,29 @@ elseif prefs.group == 3
     imageFolder = fullfile(localDir, 'stimuli/symbols_all_group3/');
 end
 
-% Select the distractor block, so that a participant does not see the same
-% distractor more than once in the experiment and so that the distractors
-% occur randomly across blocks between participants.
-t_imgList = dir(fullfile(imageFolder,'S*.bmp'));
-d_imgList = dir(fullfile(imageFolder,'D*.bmp'));
-t_hand_imgList = dir(fullfile(imageFolder,'HS*.bmp'));
-d_hand_imgList = dir(fullfile(imageFolder,'HD*.bmp'));
-if prefs.day == 1 && prefs.run == 1
-    d_imgList = d_imgList(distractor_list(161:200, prefs.subID));
-elseif prefs.day == 2 && prefs.run == 1
-    d_imgList = d_imgList(distractor_list(201:240, prefs.subID));
-elseif prefs.day == 3 && prefs.run == 1
-    d_imgList = d_imgList(distractor_list(241:280, prefs.subID));
-elseif prefs.day == 1 && prefs.run == 2
-    d_imgList = d_imgList(distractor_list(281:320, prefs.subID));
-elseif prefs.day == 2 && prefs.run == 2
-    d_imgList = d_imgList(distractor_list(321:360, prefs.subID));
-elseif prefs.day == 3 && prefs.run == 2
-%     d_imgList = d_imgList(distractor_list(360:400, prefs.subID));
-        d_imgList = d_imgList(distractor_list(161:200, prefs.subID));
-
+% Read in target symbols.
+if prefs.group == 1
+    tsymbol_dir = dir(fullfile(localDir, 'stimuli', 'symbols_all_group1/S*'));
+elseif prefs.group == 2
+    tsymbol_dir = dir(fullfile(localDir, 'stimuli', 'symbols_all_group2/S*'));
+elseif prefs.group == 3
+    tsymbol_dir = dir(fullfile(localDir, 'stimuli', 'symbols_all_group3/S*'));
 end
+
+% Remove the '.' and '..' files.
+tsymbol_dir = tsymbol_dir(arrayfun(@(x) x.name(1), tsymbol_dir) ~= '.');
 
 % Get the noise image files for the experiment
 n_imageFolder = fullfile(localDir, 'stimuli/noise_masks/');
-
-% % Select the noise images.
-% n_imgList = dir(fullfile(n_imageFolder,'nm*.bmp'));
+n_imgList = dir(fullfile(n_imageFolder, 'nm*.bmp'));
 
 % Set up the output file
-outputfile = fopen([saveDir '/mri_sub' num2str(prefs.subID) '_session' num2str(prefs.day) '_run' num2str(prefs.run) '.txt'],'a');
-fprintf(outputfile, 'subID\t block\t condition\t trial\t trial onset\t imageFile\t response\t RT\t imageFolder\n');
+outputfile = fopen([saveDir '/mri_sub' num2str(prefs.subID) '_session' num2str(prefs.day) '_run' num2str(prefs.run) '_' datestr(now,'mm-dd-yyyy_HH-MM') '.txt'],'a');
+fprintf(outputfile, 'subID\t block\t condition\t trial\t trial onset\t imageFile\t response\t RT\t imageFolder\t drawduration\n');
 
 % Start screen
-Screen('FillRect', prefs.w1, prefs.backColor);
-PresentCenteredText(prefs.w1,'Ready?', 60, prefs.foreColor, prefs.w1Size);
+Screen('FillRect', prefs.w1, prefs.backcolor);
+PresentCenteredText(prefs.w1,'Ready?', 60, prefs.forecolor, prefs.w1Size);
 Screen('Flip',prefs.w1);
 % Wait for RA to press spacebar
 while 1
@@ -152,17 +153,14 @@ while 1
     end
 end
 
-nTrials = 16;
-nOneBacks = 2;
+nTrials = 40;
+nBlocks = 3;
 
-nBlocks = 12;
-condition = Shuffle([repmat(1, [1 nBlocks/2]) repmat(2, [1 nBlocks/2]) repmat(3, [1 nBlocks/2]) repmat(4, [1 nBlocks/2])]); % four conditions:
-% 1=learned, typed, 2=unlearned, typed, 3=learned, handwritten, 4=unlearned, handwritten.
-
-% ListenChar(2);
+count = 0;
 for b = 1:nBlocks
     
     disp(['Block ', num2str(b)])
+    count = count + 1;
     
     % Fixation block before and after every condition block.
     % Show fixation cross
@@ -173,30 +171,18 @@ for b = 1:nBlocks
     if b == 1
         tStartAll = tFixation;
         fprintf(outputfile, '======= Beginning of first fixation at %2.2f ======\n', tFixation-tStartAll);
-        fixationDuration = 20;
+        fixationDuration = 2;
     else
         fprintf(outputfile, '======= Beginning of fixation number %d at %2.2f ======\n', b, tFixation-tStartAll);
         fixationDuration = 12; % Length of fixation in seconds
     end
     
     % Blank screen
-    Screen(window1, 'FillRect', backgroundColor);
+    Screen(window1, 'FillRect', prefs.backcolor);
     Screen('Flip', prefs.w1, tFixation + fixationDuration - slack,0);
     
     % Randomize the trial list
-    randomizedTrials = set_onebacks(nTrials, nOneBacks);
-    
-    % Determine if this is a learned (condition == 1) or an unlearned
-    % (condition ==2) block.
-    if condition(b) == 1
-        imgList = t_imgList;
-    elseif condition(b) == 2
-        imgList = d_imgList;
-    elseif condition(b) == 3
-        imgList = t_hand_imgList;
-    elseif condition(b) == 4
-        imgList = d_hand_imgList;
-    end
+    randomizedTrials = randperm(nTrials);
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% Run experiment
@@ -206,77 +192,142 @@ for b = 1:nBlocks
     for t = randomizedTrials
         
         trial = trial + 1;
+        idx = randi(3);
         
-        % Load image
-        file = imgList(t).name;
+        % Load symbol image
+        file = tsymbol_dir(t).name;
         img = imread(fullfile(imageFolder,file));
         imageDisplay = Screen('MakeTexture', prefs.w1, img);
         
-        %         % Load noise mask
-        %         n_file = n_imgList(t).name;
-        %         img = imread(fullfile(n_imageFolder,n_file));
-        %         n_imageDisplay = Screen('MakeTexture', prefs.w1, img);
+        % Load noise image
+        nimg = imread(fullfile(n_imgList(t).folder , n_imgList(t).name));
+        nimageDisplay = Screen('MakeTexture', prefs.w1, nimg);
         
         % Screen priority
         Priority(MaxPriority(prefs.w1));
         Priority(2);
         
-        % Show the images
-        Screen(prefs.w1, 'FillRect', backgroundColor);
+        %% Stimulation Time 1: typed symbol
+        
+        % Show the typed symbol
+        Screen(prefs.w1, 'FillRect', prefs.backcolor);
         Screen('DrawTexture', prefs.w1, imageDisplay, [], prefs.rectForStim);
         startTime = Screen('Flip', prefs.w1); % Start of trial
         
-        % Get keypress response
-        rt = 0;
-        resp = 'NA';
-        
-        while (GetSecs - startTime) < trialTimeout
+        while ((GetSecs - startTime) < symbolduration)
             
             [keyIsDown,secs,keyCode] = KbCheck;
-            respTime = GetSecs;
             pressedKeys = find(keyCode);
             
             % ESC key quits the experiment
             if keyCode(KbName('ESCAPE')) == 1
-                clear all
+                %                 clear all
                 close all
                 sca
                 return;
             end
             
-            % Check for response keys
-            if ~isempty(pressedKeys)            
-                for i = 1:length(responseKeys)                   
-                    if KbName(responseKeys{i}) == pressedKeys(1)                       
-                        resp = responseKeys{i};
-                        rt = respTime - startTime;                     
-                    end                  
-                end              
-            end
+        end
+        
+        %% Stimulation Time 2:  noise for 2 seconds.
+        
+        % Replace symbol with noise after display is over.
+        Screen(prefs.w1, 'FillRect', prefs.backcolor);
+        Screen('DrawTexture', prefs.w1, nimageDisplay, [], prefs.rectForStim);
+        endTime = Screen('Flip', prefs.w1); % End of trial
+        
+        while (GetSecs - startTime) < symbolduration + isi(idx)
             
-            % Replace symbol with fixation cross after 0.5 seconds. 
-            if (GetSecs - startTime) >= symboldisplayduration
-                
-                drawCross(prefs.w1,W,H);
-                Screen('Flip', prefs.w1); %0.50 is the amount of time the symbol should be shown
-                
+            [keyIsDown,secs,keyCode] = KbCheck;
+            pressedKeys = find(keyCode);
+            
+            % ESC key quits the experiment
+            if keyCode(KbName('ESCAPE')) == 1
+                %                 clear all
+                close all
+                sca
+                return;
             end
             
         end
-                
-        % Blank screen
-        Screen(window1, 'FillRect', backgroundColor);
+        
+        %% Stimulation Time 2: draw for 4 seconds.
+        
+        % Move mouse to projector
+%         SetMouse((ceil(prefs.w1Width / 2) + prefs.w0Width), ceil(prefs.w1Height / 2))
+        
+        % Get and display drawing input.
+        %         [prefs] = drawInk2_noboundarybox(prefs); %for wacom tablet
+        
+        prefs.lengthEvents = drawduration;
+        [prefs] = drawInk2(prefs); %for wacom tablet
+        
+        % Append the sample from this round to the end of the sample struct.
+        sample(count).subID = prefs.subID;
+        sample(count).group = prefs.group;
+        sample(count).day = prefs.day;
+        sample(count).symbolname = file;
+        sample(count).block = b;
+        sample(count).trial = trial;
+        
+        % Save drawing duration.
+        if max(prefs.time)-min(prefs.time) > 0.01
+            
+            sample(count).drawduration = max(prefs.time)-min(prefs.time);
+            
+        else
+            sample(count).drawduration = NaN;
+            
+        end
+        
+        % Save dynamic stim for yoked participant.
+        sample(count).dynamicStim = prefs.dynamicStim;
+        
+        % Save static stim.
+        sample(count).staticStim = prefs.image;
+        
+        %% Stimulation Time 4: rest for jittered interval.
+        drawCross(prefs.w1,W,H);
         Screen('Flip', prefs.w1);
-        
-        % Save results to file
-        fprintf(outputfile, '%d\t %d\t %d\t %d\t %2.2f\t %s\t %s\t %f\t %s\n',...
-            prefs.subID, b, condition(b), trial, startTime-tStartAll, file, resp, rt, imageFolder);
-        
-        % Clear textures
-        Screen(imageDisplay,'Close');
+        while (GetSecs - startTime) < epochduration
+            
+            [keyIsDown,secs,keyCode] = KbCheck;
+            pressedKeys = find(keyCode);
+            
+            % ESC key quits the experiment
+            if keyCode(KbName('ESCAPE')) == 1
+                %                 clear all
+                close all
+                sca
+                return;
+            end
+            
+        end
         
     end
     
+    
+    
+    
+    
+    %
+    %         % Blank screen
+    %         Screen(window1, 'FillRect', prefs.backcolor);
+    %         Screen('Flip', prefs.w1);
+    %
+    %         % Save results to file
+    %         fprintf(outputfile, '%d\t %d\t %d\t %d\t %2.2f\t %s\t %s\t %f\t %s\n',...
+    %             prefs.subID, b, trial, startTime-tStartAll, file, imageFolder);
+    %
+    %         % Clear textures
+    %         Screen(imageDisplay,'Close');
+    %
+    %         %     end
+    %
+    
+    
+    
+    % Final fixation
     if b == nBlocks
         
         % Show fixation cross
@@ -286,7 +337,7 @@ for b = 1:nBlocks
         fprintf(outputfile, '======= Beginning of final fixation at %2.2f ======\n', tFixation-tStartAll);
         
         % Blank screen
-        Screen(window1, 'FillRect', backgroundColor);
+        Screen(window1, 'FillRect', prefs.backcolor);
         Screen('Flip', prefs.w1, tFixation + fixationDuration - slack,0);
         fprintf(outputfile, '======= End at %2.2f ======\n', GetSecs-tStartAll);
         
@@ -303,8 +354,8 @@ copyfile(fullfile(saveDir, ['mri_sub' num2str(prefs.subID) '_session' num2str(pr
 copyfile(fullfile(saveDir, ['mri_sub' num2str(prefs.subID) '_session' num2str(prefs.day) '_run' num2str(prefs.run) '.txt']), fullfile(localDir, 'data'));
 
 % Start screen
-Screen('FillRect', prefs.w1, prefs.backColor);
-PresentCenteredText(prefs.w1,'All done!', 60, prefs.foreColor, prefs.w1Size);
+Screen('FillRect', prefs.w1, prefs.backcolor);
+PresentCenteredText(prefs.w1,'All done!', 60, prefs.forecolor, prefs.w1Size);
 Screen('Flip',prefs.w1);
 % Wait for RA to press spacebar
 while 1

@@ -54,20 +54,28 @@ penUpFlag = true;
 penUpFlag2 = true;
 
 % Move mouse to projector and account for SetMouse delay on cursor updating.
+% while 1
+%     SetMouse((ceil(prefs.w1Width / 2) + prefs.w0Width), ceil(prefs.w1Height / 2));
+%     [checkX, checkY] = GetMouse;
+%     if (checkX==(ceil(prefs.w1Width / 2) + prefs.w0Width)) && (checkY==ceil(prefs.w1Height / 2))
+%         break;
+%     end
+% end
 while 1
-    SetMouse((ceil(prefs.w1Width / 2) + prefs.w0Width), ceil(prefs.w1Height / 2));
+    SetMouse((ceil(prefs.w1Width / 2)), ceil(prefs.w1Height / 2));
     [checkX, checkY] = GetMouse;
-    if (checkX==(ceil(prefs.w1Width / 2) + prefs.w0Width)) && (checkY==ceil(prefs.w1Height / 2))
+    if checkX==(ceil(prefs.w1Width / 2)) && checkY==ceil(prefs.w1Height / 2)
         break;
     end
 end
 
+
 % Start with empty screen.
-Screen('FillRect', prefs.w3, prefs.backColor);
+Screen('FillRect', prefs.w1, prefs.backcolor);
 % Create frame for guide.
-Screen('FrameRect', prefs.w3, prefs.foreColor, prefs.w3Size, prefs.penWidth);
+% Screen('FrameRect', prefs.w1, prefs.forecolor, prefs.w1Size, prefs.penWidth);
 % Flip.
-Screen('Flip', prefs.w3);
+Screen('Flip', prefs.w1);
 
 % Block Time Counter
 tic;
@@ -75,7 +83,7 @@ tic;
 while toc < prefs.lengthEvents
     
     % Get mouse input
-    [x, y, buttons] = GetMouse(prefs.w3);
+    [x, y, buttons] = GetMouse(prefs.w1);
     
     % Only draw if pen is down.
     if any(buttons)
@@ -116,19 +124,19 @@ while toc < prefs.lengthEvents
     end
     
     % Draw Frame and text on screen.
-    Screen('FillRect', prefs.w3, prefs.backColor);
-    Screen('FrameRect', prefs.w3, prefs.foreColor, prefs.w3Size, prefs.penWidth);
+    Screen('FillRect', prefs.w1, prefs.backcolor);
+%     Screen('FrameRect', prefs.w1, prefs.forecolor, prefs.w1Size, prefs.penWidth);
     
     % Draw Lines on screen.
-    Screen('DrawLines', prefs.w3, input_lines, prefs.penWidth, prefs.foreColor);
+    Screen('DrawLines', prefs.w1, input_lines, prefs.penWidth, prefs.forecolor);
     
     % Redraw image
-    Screen('Flip', prefs.w3);
+    Screen('Flip', prefs.w1);
     
 end
 
 % Get image.
-prefs.image = Screen('GetImage', prefs.w3);
+prefs.image = Screen('GetImage', prefs.w1);
 
 % Get dynamic. Save input_lines, as is.
 prefs.dynamicStim = cat(1, input_lines, t);
